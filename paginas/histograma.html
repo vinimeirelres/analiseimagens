@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Histograma da Imagem</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 1.5rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .main-container {
+            background-color: white;
+            padding: 2.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 900px; /* Largura ideal para um gráfico */
+            text-align: center;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700; 
+            margin-bottom: 2rem;
+            color: #1e293b; /* slate-800 */
+        }
+        #plot-container {
+            width: 100%;
+            height: 450px; /* Altura fixa para o gráfico */
+            margin-bottom: 2rem;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3b82f6;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+            display: none; /* Escondido por padrão */
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .button { 
+            background-color: #64748b; /* slate-500 */
+            color: white; 
+            padding: 0.7rem 1.5rem;
+            border-radius: 0.5rem;
+            text-decoration: none; 
+            font-weight: 500;
+            transition: background-color 0.2s, transform 0.1s; 
+            border: none; 
+            cursor: pointer;
+        }
+        .button:hover {
+            background-color: #475569; /* slate-600 */
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>Histograma de Níveis de Cinza</h1>
+        <div id="loader" class="loader"></div>
+        <div id="plot-container"></div>
+        <button id="botaoVoltar" class="button">Voltar para Processamento</button>
+    </div>
+
+    <script>
+        const plotContainer = document.getElementById('plot-container');
+        const loader = document.getElementById('loader');
+        const botaoVoltar = document.getElementById('botaoVoltar');
+
+        async function desenharHistograma() {
+            const imageDataUrl = localStorage.getItem('imagemParaExibir');
+            if (!imageDataUrl) {
+                plotContainer.innerHTML = '<p class="text-red-600">Erro: Nenhuma imagem encontrada no cache. Por favor, carregue uma imagem primeiro.</p>';
+                return;
+            }
+
+            loader.style.display = 'block'; // Mostra o loader
+            plotContainer.style.display = 'none'; // Esconde a área do gráfico
+
+            try {
+                const response = await fetch("{{ url_for('api_calcular_histograma') }}", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ imageDataUrl: imageDataUrl })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                const histogramData = data.histogramData;
+
+                // Prepara os dados para o Plotly
+                const trace = {
+                    x: Array.from(Array(256).keys()), // Eixo X de 0 a 255
+                    y: histogramData, // Eixo Y com a contagem de pixels
+                    type: 'bar', // Tipo de gráfico de barras
+                    marker: {
+                        color: '#3b82f6' // Cor das barras
+                    }
+                };
+                
+                const layout = {
+                    title: 'Distribuição de Intensidade de Pixels',
+                    xaxis: { title: 'Nível de Cinza (0=Preto, 255=Branco)' },
+                    yaxis: { title: 'Quantidade de Pixels' },
+                    bargap: 0.05 // Espaço entre as barras
+                };
+
+                // Desenha o gráfico
+                Plotly.newPlot('plot-container', [trace], layout, {responsive: true});
+
+            } catch (error) {
+                console.error("Erro ao buscar ou desenhar histograma:", error);
+                plotContainer.innerHTML = `<p class="text-red-600">Falha ao gerar o histograma: ${error.message}</p>`;
+            } finally {
+                loader.style.display = 'none'; // Esconde o loader
+                plotContainer.style.display = 'block'; // Mostra a área do gráfico
+            }
+        }
+
+        // Executa a função quando a página carregar
+        document.addEventListener('DOMContentLoaded', desenharHistograma);
+        
+        // Adiciona funcionalidade ao botão de voltar
+        botaoVoltar.addEventListener('click', () => {
+            window.location.href = "{{ url_for('processamento') }}";
+        });
+    </script>
+</body>
+</html>

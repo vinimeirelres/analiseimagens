@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exibir e Processar Imagem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #e9eef2; /* Fundo um pouco mais claro */
+            margin: 0;
+            padding: 1.5rem; /* Aumenta o padding geral */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column; /* Para centralizar o container principal */
+            align-items: center;
+        }
+        .main-container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 1200px; /* Aumenta a largura máxima para acomodar duas imagens */
+        }
+        h1 {
+            font-size: 2rem; /* Aumenta o título */
+            font-weight: 700; 
+            margin-bottom: 2rem; /* Mais espaço abaixo do título */
+            color: #1e293b; /* slate-800 */
+            text-align: center;
+        }
+        .images-section {
+            display: flex;
+            flex-direction: column; /* Empilha em telas pequenas */
+            /* md:flex-row; Lado a lado em telas médias e maiores - Tailwind JIT precisa estar ativo ou use classes completas */
+        }
+        @media (min-width: 768px) { /* Equivalente a md:flex-row */
+            .images-section {
+                flex-direction: row;
+            }
+        }
+        .images-section {
+            gap: 2rem; /* Espaço entre as colunas */
+            margin-bottom: 2rem;
+        }
+        .image-column {
+            flex: 1; /* Cada coluna ocupa metade do espaço */
+            background-color: #f8fafc; /* slate-50 */
+            border: 1px solid #e2e8f0; /* slate-200 */
+            border-radius: 0.75rem; /* rounded-xl */
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 300px; /* Altura mínima para as colunas */
+        }
+        .image-column h2 {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 600;
+            color: #334155; /* slate-700 */
+            margin-bottom: 1rem;
+        }
+        .image-display {
+            width: 100%;
+            min-height: 250px; /* Altura mínima para a área da imagem */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* Para imagens muito grandes */
+            margin-bottom: 1rem; /* Espaço antes de possíveis controles abaixo da imagem */
+        }
+        .image-display img {
+            max-width: 100%;
+            max-height: 50vh; /* Limita a altura da imagem */
+            border-radius: 0.5rem; /* rounded-lg */
+            object-fit: contain;
+            border: 1px solid #cbd5e1; /* slate-300 - borda sutil na imagem */
+        }
+        .placeholder-text {
+            color: #64748b; /* slate-500 */
+            font-size: 1rem;
+        }
+        .controls-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem; /* Espaço entre grupos de botões */
+            align-items: center; /* Centraliza os botões */
+            margin-top: 1rem;
+        }
+        .button-group {
+            display: flex;
+            flex-wrap: wrap; /* Permite que os botões quebrem linha se necessário */
+            gap: 0.75rem; /* Espaço entre botões no mesmo grupo */
+            justify-content: center;
+        }
+        .button { 
+            background-color: #3b82f6; /* bg-blue-500 */
+            color: white; 
+            padding: 0.6rem 1.2rem; /* Ajusta padding */
+            border-radius: 0.5rem; 
+            text-decoration: none; 
+            font-weight: 500; /* font-medium */
+            transition: background-color 0.2s, transform 0.1s; 
+            border: none; 
+            cursor: pointer;
+        }
+        .button:hover:not(:disabled) { 
+            background-color: #2563eb; /* bg-blue-600 */
+            transform: translateY(-1px);
+        }
+        .button-secondary {
+            background-color: #64748b; /* slate-500 */
+        }
+        .button-secondary:hover:not(:disabled) {
+            background-color: #475569; /* slate-600 */
+        }
+        .button-save {
+            background-color: #10b981; /* bg-emerald-500 */
+        }
+        .button-save:hover:not(:disabled) {
+            background-color: #059669; /* bg-emerald-600 */
+        }
+        .button:disabled {
+            background-color: #cbd5e1; /* slate-300 */
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+    
+        .loader {
+            border: 4px solid #f3f3f3; /* Light grey */
+            border-top: 4px solid #3b82f6; /* Blue */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 1rem auto;
+            display: none; /* Escondido por padrão */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="button-group">
+            <button id="botaoVoltar" class="button button-secondary">Carregar Nova Imagem</button>
+        </div>
+    </div>
+
+
+
+    <div class="main-container">
+        <h1>Visualizar e Processar Imagem</h1>
+
+        <div class="images-section">
+            <div class="image-column">
+                <h2>Imagem Original</h2>
+                <div class="image-display">
+                    <img id="imagemOriginal" src="" alt="Imagem original carregada pelo utilizador">
+                    <p id="mensagemErroOriginal" class="placeholder-text" style="display: none;">Nenhuma imagem original.</p>
+                </div>
+                <div id="loaderProcessamento" class="loader"></div>
+                <button id="botaoHistograma" class="button button-save mt-4" style="display: contents;">Mostrar Histograma</button>
+            </div>
+
+            <div class="image-column">
+                <h2>Imagem Processada</h2>
+                <div class="image-display">
+                    <img id="imagemProcessada" src="" alt="Imagem processada">
+                    <p id="placeholderProcessada" class="placeholder-text">A imagem processada aparecerá aqui.</p>
+                </div>
+                <div id="loaderProcessamento" class="loader"></div>
+                <button id="botaoSalvarProcessada" class="button button-save mt-4" style="display: none;">Salvar Imagem Processada</button>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <div class="button-group">
+                <h3> Transformações de Intensidade </h3>
+                <button id="botaoAlargamentoContraste" class="button">Aplicar Alargamento de Contraste</button>
+                <button id="botaoEqualizacaoHistograma" class="button">Aplicar Equalização de Histograma</button>
+                </div>
+        </div>
+
+        <div class="controls-section">
+            <div class="button-group">
+                <h3> Filtros Passa-Baixa </h3>
+                <button id="botaoProcessarMedia" class="button">Aplicar Filtro da Média</button>
+                <button id="botaoProcessarMediana" class="button">Aplicar Filtro da Médiana</button>
+                <button id="botaoProcessarGaussiano" class="button">Aplicar Filtro Gaussiano</button>
+                <button id="botaoProcessarMaximo" class="button">Aplicar Filtro Máximo </button>
+                <button id="botaoProcessarMinimo" class="button">Aplicar Filtro Mínimo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imgOriginalElement = document.getElementById('imagemOriginal');
+        const msgErroOriginal = document.getElementById('mensagemErroOriginal');
+        
+        const imgProcessadaElement = document.getElementById('imagemProcessada');
+        const placeholderProcessada = document.getElementById('placeholderProcessada');
+        const loaderProcessamento = document.getElementById('loaderProcessamento');
+        const botaoHistograma = document.getElementById('botaoHistograma');
+        const botaoSalvarProcessada = document.getElementById('botaoSalvarProcessada');
+
+        const botaoAlargamentoContraste = document.getElementById('botaoAlargamentoContraste');
+        const botaoEqualizacaoHistograma = document.getElementById('botaoEqualizacaoHistograma');
+        const botaoProcessarMedia = document.getElementById('botaoProcessarMedia');
+        const botaoProcessarMediana = document.getElementById('botaoProcessarMediana');
+        const botaoProcessarGaussiano = document.getElementById('botaoProcessarGaussiano');
+        const botaoProcessarMaximo = document.getElementById('botaoProcessarMaximo');
+        const botaoProcessarMinimo = document.getElementById('botaoProcessarMinimo');
+
+        const botaoVoltar = document.getElementById('botaoVoltar');
+
+        let originalImageDataUrl = null;
+
+        // Carrega a imagem original do localStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            originalImageDataUrl = localStorage.getItem('imagemParaExibir');
+            if (originalImageDataUrl) {
+                imgOriginalElement.src = originalImageDataUrl;
+                imgOriginalElement.style.display = 'block';
+                msgErroOriginal.style.display = 'none';
+                // Opcionalmente, pode exibir a original na área de processada inicialmente
+                // imgProcessadaElement.src = originalImageDataUrl; 
+                // imgProcessadaElement.style.display = 'block';
+                // placeholderProcessada.style.display = 'none';
+            } else {
+                imgOriginalElement.style.display = 'none';
+                msgErroOriginal.style.display = 'block';
+                msgErroOriginal.textContent = 'Nenhuma imagem original. Por favor, carregue uma primeiro.';
+                // Desabilitar botões de processamento se não houver imagem
+                [botaoProcessarCinza, botaoProcessarBlur, botaoProcessarNegativo].forEach(btn => btn.disabled = true);
+            }
+        });
+
+        async function processarImagem(tipoProcessamento) {
+            if (!originalImageDataUrl) {
+                alert("Nenhuma imagem original para processar.");
+                return;
+            }
+
+            loaderProcessamento.style.display = 'block';
+            imgProcessadaElement.style.display = 'none'; // Esconde a imagem processada anterior
+            placeholderProcessada.textContent = 'Processando...';
+            placeholderProcessada.style.display = 'block';
+            botaoSalvarProcessada.style.display = 'none'; // Esconde o botão de salvar
+
+            try {
+                const response = await fetch("{{ url_for('api_processar_imagem') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        imageDataUrl: originalImageDataUrl,
+                        tipoProcessamento: tipoProcessamento 
+                    }),
+                });
+
+                loaderProcessamento.style.display = 'none'; // Esconde o loader
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Erro HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.processedImageDataUrl) {
+                    imgProcessadaElement.src = data.processedImageDataUrl;
+                    imgProcessadaElement.style.display = 'block'; // Mostra a nova imagem processada
+                    placeholderProcessada.style.display = 'none'; // Esconde o placeholder
+                    botaoSalvarProcessada.style.display = 'inline-block'; // Mostra o botão de salvar
+                } else {
+                    throw new Error("Resposta não continha URL da imagem processada.");
+                }
+
+            } catch (error) {
+                console.error("Erro ao processar imagem:", error);
+                placeholderProcessada.textContent = `Erro: ${error.message}`;
+                placeholderProcessada.style.display = 'block';
+                imgProcessadaElement.style.display = 'none';
+                loaderProcessamento.style.display = 'none';
+            }
+        }
+
+        botaoAlargamentoContraste.addEventListener('click', () => processarImagem('alargamento_contraste'));
+        botaoEqualizacaoHistograma.addEventListener('click', () => processarImagem('equalizacao_histograma'));
+        botaoProcessarMedia.addEventListener('click', () => processarImagem('media'));
+        botaoProcessarMediana.addEventListener('click', () => processarImagem('mediana'));
+        botaoProcessarGaussiano.addEventListener('click', () => processarImagem('gaussiano'));
+        botaoProcessarMaximo.addEventListener('click', () => processarImagem('maximo'));
+        botaoProcessarMinimo.addEventListener('click', () => processarImagem('minimo'));
+
+
+        botaoSalvarProcessada.addEventListener('click', () => {
+            const dataUrl = imgProcessadaElement.src;
+            // Verifica se o src não é a página atual (caso de erro ou imagem não carregada)
+            if (dataUrl && dataUrl !== window.location.href && dataUrl.startsWith('data:image')) { 
+                const link = document.createElement('a');
+                link.href = dataUrl;
+                // Tenta extrair a extensão do Data URL, senão usa 'png' como padrão
+                const extensaoMatch = dataUrl.match(/data:image\/([a-zA-Z+]+);/);
+                const extensao = extensaoMatch ? extensaoMatch[1].replace('jpeg', 'jpg') : 'png'; // Corrige jpeg para jpg se necessário
+                link.download = `imagem_processada.${extensao}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert("Nenhuma imagem processada válida para salvar.");
+            }
+        });
+
+        botaoHistograma.addEventListener('click', () => {
+            window.location.href = "{{ url_for('carregar_histograma') }}";
+        });
+
+        botaoVoltar.addEventListener('click', () => {
+            // localStorage.removeItem('imagemParaExibir'); // Opcional: limpar ao voltar
+            window.location.href = "{{ url_for('carregar_pagina') }}";
+        });
+
+    </script>
+</body>
+</html>

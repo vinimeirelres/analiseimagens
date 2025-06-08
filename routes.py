@@ -1,146 +1,136 @@
-from flask import Flask, render_template, request, jsonify
-import cv2 # OpenCV para processamento de imagem
+from flask import Flask, render_template, request, jsonify, send_from_directory
+import cv2 
 import numpy as np
-import base64
-import re # Para extrair dados do Data URL
+from werkzeug.utils import secure_filename
+import os
 import processamento as p
 
 app = Flask(__name__, template_folder='paginas')
 
-def data_url_to_cv2_img(data_url):
-    """Converte um Data URL de imagem para um objeto de imagem OpenCV."""
-    try:
-        # Remove o cabeçalho do Data URL (ex: "data:image/png;base64,")
-        img_str = re.search(r'base64,(.*)', data_url).group(1)
-        img_bytes = base64.b64decode(img_str)
-        img_np_arr = np.frombuffer(img_bytes, np.uint8)
-        img = cv2.imdecode(img_np_arr, cv2.IMREAD_COLOR)
-        return img
-    except Exception as e:
-        print(f"Erro ao converter Data URL para imagem: {e}")
-        return None
+PASTA_UPLOADS = 'uploads'
+PASTA_PROCESSADAS = 'processadas'
+os.makedirs(PASTA_UPLOADS, exist_ok=True)
+os.makedirs(PASTA_PROCESSADAS, exist_ok=True)
 
-def cv2_img_to_data_url(img, extension=".png"):
-    """Converte um objeto de imagem OpenCV para um Data URL."""
-    try:
-        _, buffer = cv2.imencode(extension, img)
-        img_bytes = buffer.tobytes()
-        img_base64 = base64.b64encode(img_bytes).decode('utf-8')
-        return f"data:image/{extension[1:]};base64,{img_base64}"
-    except Exception as e:
-        print(f"Erro ao converter imagem para Data URL: {e}")
-        return None
+app.config['PASTA_UPLOADS'] = PASTA_UPLOADS
+app.config['PASTA_PROCESSADAS'] = PASTA_PROCESSADAS
 
-@app.route('/')
-def carregar_pagina():
-    """Serve a página inicial para carregar a imagem."""
-    return render_template('index.html') 
+#Tipos de processamento
 
-@app.route('/processamento')
-def processamento():
-    """Serve a página que vai exibir a imagem original e a processada."""
-    return render_template('processing.html') 
+PROCESSAMENTOS = {
+    'alargamento_contraste': lambda img: p.alargamento_contraste(p.escala_cinza(img)),
+    'eq_histograma': lambda img: p.equalizacao_histograma(p.escala_cinza(img)),
+    'media': lambda img: p.filtro_media(p.escala_cinza(img)),
+    'mediana': lambda img: p.filtro_mediana(p.escala_cinza(img)),
+    'gaussiano': lambda img: p.filtro_gaussiano(p.escala_cinza(img)),
+    'maximo': lambda img: p.filtro_maximo(p.escala_cinza(img)),
+    'minimo': lambda img: p.filtro_minimo(p.escala_cinza(img)),
+    'laplaciano': lambda img: p.filtro_laplaciano(p.escala_cinza(img)),
+    'roberts': lambda img: p.filtro_roberts(p.escala_cinza(img)),
+    'prewitt': lambda img: p.filtro_prewitt(p.escala_cinza(img)),
+    'sobel': lambda img: p.filtro_sobel(p.escala_cinza(img)),
+    'convolucao_dominio': lambda img, tipo: p.aplicar_filtro_frequencia(p.escala_cinza(img), tipo),
+    'fourier': lambda img: p.espectro_fourier(p.escala_cinza(img)),
+    'erosao': lambda img: p.erosao(p.escala_cinza(img)),
+    'dilatacao': lambda img: p.dilatacao(p.escala_cinza(img)),
+    'abertura': lambda img: p.abertura(p.escala_cinza(img)),
+    'fechamento': lambda img: p.fechamento(p.escala_cinza(img)),
+    'otsu': lambda img: p.segmentacao_otsu(p.escala_cinza(img))
+}
+
+@app.route('/', methods=['GET', 'POST'])
+def index():
+    if request.method == 'POST':
+        file = request.files.get('imagem')
+        if not file:
+            return 'Nenhuma imagem enviada', 400
+        
+        filename = secure_filename(file.filename)
+        caminho = os.path.join(app.config['PASTA_UPLOADS'], filename)
+        file.save(caminho)
+
+        return render_template('processing.html', filename=filename)  # já carrega a próxima página
+
+    return render_template('index.html')
+
+
 
 @app.route('/histograma')
-def carregar_histograma():
-    return render_template('histograma.html') 
+def histograma():
+    filename = request.args.get('filename')
+    if not filename:
+        return 'Arquivo não especificado', 400
+    return render_template('histograma.html', filename=filename)
+
+@app.route('/processing')
+def voltar_para_processing():
+    filename = request.args.get('filename')
+    if not filename:
+        return 'Arquivo não especificado', 400
+    return render_template('processing.html', filename=filename)
+
+
 
 @app.route('/api/processar', methods=['POST'])
-def api_processar_imagem():
-    """
-    API para processar uma imagem.
-    Recebe: JSON com 'imageDataUrl' e 'tipoProcessamento'.
-    Retorna: JSON com 'processedImageDataUrl' ou um erro.
-    """
-    data = request.get_json()
-    if not data or 'imageDataUrl' not in data or 'tipoProcessamento' not in data:
-        return jsonify({"error": "Dados inválidos"}), 400
+def processar_imagem():
+    filename = request.form.get('filename')
+    tipo_proc = request.form.get('tipo')
+    tipo_freq = request.form.get('tipoFiltro')
 
-    original_data_url = data['imageDataUrl']
-    tipo_processamento = data['tipoProcessamento']
+    if not filename or not tipo_proc:
+        return jsonify({'error': 'Dados ausentes'}), 400
 
-    img_original = data_url_to_cv2_img(original_data_url)
-    if img_original is None:
-        return jsonify({"error": "Não foi possível decodificar a imagem original"}), 500
+    caminho = os.path.join(app.config['PASTA_UPLOADS'], filename)
+    img = cv2.imread(caminho)
 
-    img_processada = None
-    # --- Lógica de Processamento ---
+    func = PROCESSAMENTOS.get(tipo_proc)
+    if not func:
+        return jsonify({'error': 'Tipo inválido'}), 400
+
     try:
-        if tipo_processamento == 'alargamento_contraste':
-            if img_original is not None:
-                cinza = p.escala_cinza(img_original)
-                img_processada = p.alargamento_contraste(cinza)
-        elif tipo_processamento == 'media':
-            if img_original is not None:
-                cinza = p.escala_cinza(img_original)
-                img_processada = p.filtro_media(cinza)
-        elif tipo_processamento == 'equalizacao_histograma':
-            if img_original is not None:
-                cinza = p.escala_cinza(img_original)
-                img_processada = p.equalizacao_histograma(cinza)
-        elif tipo_processamento == 'mediana':
-            if img_original is not None:
-                cinza = p.escala_cinza(img_original)
-                img_processada = p.filtro_mediana(cinza)
-        elif tipo_processamento == 'gaussiano':
-            if img_original is not None:
-                cinza = p.escala_cinza(img_original)
-                img_processada = p.filtro_gaussiano(cinza)
-        elif tipo_processamento == 'maximo':
-            if img_original is not None:
-                cinza = p.escala_cinza(img_original)
-                img_processada = p.filtro_maximo(cinza)
-        elif tipo_processamento == 'minimo':
-            if img_original is not None:
-                cinza = p.escala_cinza(img_original)
-                img_processada = p.filtro_minimo(cinza)        
-        # Adicione outros tipos de processamento aqui
-        # elif tipo_processamento == 'outro_filtro':
-        #     # Seu código de processamento
-        #     pass
+        if tipo_proc == 'convolucao_dominio':
+            img_proc = func(img, tipo_freq)
         else:
-            return jsonify({"error": "Tipo de processamento desconhecido"}), 400
+            img_proc = func(img)
     except Exception as e:
-        print(f"Erro durante o processamento '{tipo_processamento}': {e}")
-        return jsonify({"error": f"Erro ao processar a imagem: {str(e)}"}), 500
+        return jsonify({'error': f'Erro: {str(e)}'}), 500
 
+    caminho_processado = os.path.join(app.config['PASTA_PROCESSADAS'], filename)
+    cv2.imwrite(caminho_processado, img_proc)
 
-    if img_processada is None:
-        return jsonify({"error": "Falha no processamento da imagem"}), 500
+    return jsonify({
+        'processada': f'/imagem/processada/{filename}'
+    }),200
 
-    processed_data_url = cv2_img_to_data_url(img_processada)
-    if processed_data_url is None:
-        return jsonify({"error": "Não foi possível codificar a imagem processada"}), 500
-
-    return jsonify({"processedImageDataUrl": processed_data_url})
-
+ 
+ 
 
 @app.route('/api/calcular_histograma', methods=['POST'])
-def api_calcular_histograma():
-    """API para calcular os dados do histograma de uma imagem."""
-    data = request.get_json()
-    if not data or 'imageDataUrl' not in data:
-        return jsonify({"error": "Dados inválidos: imageDataUrl ausente"}), 400
-
-    img = data_url_to_cv2_img(data['imageDataUrl'])
+def calcular_histograma():
+    filename = request.form.get('filename')
+    if not filename:
+        return jsonify({'error': 'Nome do arquivo ausente'}), 400
+   
+    caminho = os.path.join(app.config['PASTA_UPLOADS'], filename)
+    img = cv2.imread(caminho)
+   
     if img is None:
-        return jsonify({"error": "Não foi possível decodificar a imagem"}), 500
+        return jsonify({'error': 'Imagem não encontrada'}), 404
+
+    hist_data = p.calcular_histograma(p.escala_cinza(img)).flatten().tolist()
+ 
     
-    # 1. Converter para escala de cinza
-    cinza = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # 2. Calcular o histograma
-    # Parâmetros: [imagem], [canal], máscara (nenhuma), [tamanho do hist], [range]
-    hist = cv2.calcHist([cinza], [0], None, [256], [0, 256])
-    
-    # 3. Preparar dados para JSON
-    # O hist é um array 2D, então usamos flatten() para torná-lo 1D
-    # e tolist() para converter de numpy array para uma lista Python padrão
-    hist_data = hist.flatten().tolist()
-    
-    return jsonify({"histogramData": hist_data})
+    return jsonify({'histograma': hist_data}),200
+
+
+@app.route('/imagem/original/<nome>')
+def get_original(nome):
+    return send_from_directory(app.config['PASTA_UPLOADS'], nome)
+
+@app.route('/imagem/processada/<nome>')
+def get_processada(nome):
+    return send_from_directory(app.config['PASTA_PROCESSADAS'], nome)
 
 
 if __name__ == '__main__':
-    # Instale o OpenCV se ainda não tiver: pip install opencv-python
     app.run(debug=True)

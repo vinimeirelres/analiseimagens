@@ -1,68 +1,19 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Carregar Imagem</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <title>Carregar Imagem</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilo.css') }}">
 </head>
 <body>
-    <div class="container">
-        <h1>Carregar Imagem</h1>
-        <div class="file-input-wrapper">
-            <input type="file" id="arquivoImagem" accept="image/png, image/jpeg, image/jpg">
-        </div>
-        
-        <div id="preview" class="preview-container">
-            <p>Pré-visualização da imagem aparecerá aqui.</p>
-        </div>
-
-        <button id="botaoContinuar" class="button mt-6" disabled>Continuar</button>
-    </div>
-
-    <script>
-        const inputArquivo = document.getElementById('arquivoImagem');
-        const botaoContinuar = document.getElementById('botaoContinuar');
-        const previewContainer = document.getElementById('preview');
-
-        let imagemDataUrl = null; // Variável para guardar o Data URL da imagem
-
-        inputArquivo.addEventListener('change', function(event) {
-            const arquivo = event.target.files[0];
-            previewContainer.innerHTML = ''; // Limpa o preview anterior
-
-            if (arquivo) {
-                const leitor = new FileReader();
-
-                leitor.onload = function(e) {
-                    // Mostra a pré-visualização
-                    const imgElement = document.createElement('img');
-                    imgElement.src = e.target.result;
-                    previewContainer.appendChild(imgElement);
-                    
-                    imagemDataUrl = e.target.result; // Guarda o Data URL
-                    botaoContinuar.disabled = false; // Ativa o botão
-                }
-                leitor.readAsDataURL(arquivo); // Lê o arquivo como Data URL
-            } else {
-                imagemDataUrl = null;
-                botaoContinuar.disabled = true; // Desativa o botão se nenhum arquivo for selecionado
-                const pElement = document.createElement('p');
-                pElement.textContent = 'Pré-visualização da imagem aparecerá aqui.';
-                previewContainer.appendChild(pElement);
-
-            }
-        });
-
-        botaoContinuar.addEventListener('click', function() {
-            if (imagemDataUrl) {
-                // Salva o Data URL no localStorage para a próxima página usar
-                localStorage.setItem('imagemParaExibir', imagemDataUrl);
-                window.location.href = "{{ url_for('processamento') }}"; // Redireciona para a página de mostrar
-            } else {
-                alert("Por favor, selecione uma imagem primeiro.");
-            }
-        });
-    </script>
+  <div class="container">
+    <h1 class="titulo">Projeto Prático - PDI</h1>
+    
+    <form method="POST" enctype="multipart/form-data" action="/" class="formulario">
+      <input class="input" type="file" name="imagem" accept="image/png, image/jpeg" required>
+      <button class="botao" type="submit">Enviar</button>
+    </form>
+  </div>
 </body>
 </html>

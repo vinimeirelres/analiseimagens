@@ -6,8 +6,7 @@ import numpy as np
 # ===========================
 def escala_cinza(imagem):
     return cv2.cvtColor(imagem, cv2.COLOR_BGR2GRAY)
-
-
+    
 # ===========================
 # HISTOGRAMA
 # ===========================
@@ -22,9 +21,9 @@ def calcular_histograma(imagem):
 # ===========================
 
 def alargamento_contraste (imagem):
-    min_val = np.min(imagem)
-    max_val = np.max(imagem)
-    alargada = (imagem - min_val) * (255 / (max_val - min_val))
+    val_min = np.min(imagem)
+    val_max = np.max(imagem)
+    alargada = (imagem - val_min) * (255 / (val_max - val_min))
 
     return alargada.astype(np.uint8)
 
@@ -39,7 +38,6 @@ def equalizacao_histograma(imagem):
 def filtro_media(imagem):
     return cv2.blur(imagem, (5, 5))
 
-
 def filtro_mediana(imagem):
     return cv2.medianBlur(imagem, 5)
 
@@ -47,12 +45,12 @@ def filtro_gaussiano(imagem):
     return cv2.GaussianBlur(imagem, (5, 5), 0)
 
 def filtro_maximo(imagem):
-    kernel = np.ones((5, 5), np.uint8)
-    return cv2.dilate(imagem, kernel)
+    elem_est = np.ones((5, 5), np.uint8)
+    return cv2.dilate(imagem, elem_est)
 
 def filtro_minimo(imagem):
-    kernel = np.ones((5, 5), np.uint8)
-    return cv2.erode(imagem, kernel)
+    elem_est = np.ones((5, 5), np.uint8)
+    return cv2.erode(imagem, elem_est)
 
 
 # ===========================
@@ -70,8 +68,8 @@ def filtro_roberts(imagem):
     return cv2.magnitude(x.astype(np.float32), y.astype(np.float32))
 
 def filtro_prewitt(imagem):
-    kernelx = np.array([1, 0,-1], [1, 0, -1], [1, 0, -1])
-    kernely = np.array([1, 1, 1], [0, 0, 0], [-1, -1, -1])
+    kernelx = np.array([[1, 0,-1], [1, 0, -1], [1, 0, -1]])
+    kernely = np.array([[1, 1, 1], [0, 0, 0], [-1, -1, -1]])
     x = cv2.filter2D(imagem, -1, kernelx)
     y = cv2.filter2D(imagem, -1, kernely)
     return cv2.magnitude(x.astype(np.float32), y.astype(np.float32))
@@ -87,24 +85,25 @@ def filtro_sobel(imagem):
 # ===========================
 
 def aplicar_filtro_frequencia(imagem, tipo='passa-baixa'):
-    dft = cv2.dft(np.float32(imagem), flags=cv2.DFT_COMPLEX_OUTPUT)
-    dft_shift = np.fft.fftshift(dft)
-    rows, cols = imagem.shape
-    crow, ccol = rows//2, cols//2
+    fourier_imagem = cv2.dft(np.float32(imagem), flags=cv2.DFT_COMPLEX_OUTPUT)
+    cent_imagem = np.fft.fftshift(fourier_imagem) #centraliza o espectro
+    linhas, colunas = imagem.shape
+    clinhas, ccolunas = linhas//2, colunas//2
 
-    mask = np.zeros((rows, cols, 2), np.uint8)
-    r = 30
+    r = 30  #raio do filtro circular
     if tipo == 'passa-baixa':
-        mask[crow-r:crow+r, ccol-r:ccol+r] = 1
+        mascara = np.zeros((linhas, colunas, 2), np.uint8)
+        mascara[clinhas-r:clinhas+r, ccolunas-r:ccolunas+r] = 1
     elif tipo == 'passa-alta':
-        mask[crow-r:crow+r, ccol-r:ccol+r] = 0
+        mascara = np.ones((linhas, colunas, 2), np.uint8)
+        mascara[clinhas-r:clinhas+r, ccolunas-r:ccolunas+r] = 0
 
-    fshift = dft_shift*mask
-    f_ishift = np.fft.ifftshift(fshift)
-    img_back = cv2.idft(f_ishift)
-    img_back = cv2.magnitude(img_back[:,:,0], img_back[:,:,1])
+    filtrada = cent_imagem*mascara
+    descent_imagem = np.fft.ifftshift(filtrada) #descentraliza o espectro
+    imagem_volta= cv2.idft(descent_imagem) #inversa de fourier
+    imagem_volta = cv2.magnitude(imagem_volta[:,:,0], imagem_volta[:,:,1]) #calculo da magnitude (eliminação de complexos)
 
-    return cv2.normalize(img_back, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    return cv2.normalize(imagem_volta, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8) #normalização e conversão do tipo
 
 
 # ===========================
@@ -112,10 +111,10 @@ def aplicar_filtro_frequencia(imagem, tipo='passa-baixa'):
 # ===========================
 
 def espectro_fourier(imagem):
-    dft = cv2.dft(np.float32(imagem), flags=cv2.DFT_COMPLEX_OUTPUT)
-    dft_shift = np.fft.fftshift(dft)
-    magnitude_spectrum = 20*np.log(cv2.magnitude(dft_shift[:,:,0], dft_shift[:,:,1]))
-    return cv2.normalize(magnitude_spectrum, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    imagem_fourier = cv2.dft(np.float32(imagem), flags=cv2.DFT_COMPLEX_OUTPUT) #transformada discreta
+    cent_freq_imagem = np.fft.fftshift(imagem_fourier) #centraliza a frequência (frequencia zero no centro da imagem, ao invés de no canto superior esquerdo)
+    magnitude = 20*np.log(cv2.magnitude(cent_freq_imagem[:,:,0], cent_freq_imagem[:,:,1])) #calculo da magnitude
+    return cv2.normalize(magnitude, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8) #normalização
 
 
 # ===========================
@@ -123,20 +122,20 @@ def espectro_fourier(imagem):
 # ===========================
 
 def erosao(imagem):
-    kernel = np.ones((5,5), np.uint8)
-    return cv2.erode(imagem, kernel)
+    elem_est = np.ones((5,5), np.uint8)
+    return cv2.erode(imagem, elem_est)
 
 def dilatacao(imagem):
-    kernel = np.ones((5,5), np.uint8)
-    return cv2.dilate(imagem, kernel)
+    elem_est = np.ones((5,5), np.uint8)
+    return cv2.dilate(imagem, elem_est)
 
 def abertura(imagem):
-    kernel = np.ones((5,5), np.uint8)
-    return cv2.morphologyEx(imagem, cv2.MORPH_OPEN, kernel)
+    elem_est = np.ones((5,5), np.uint8)
+    return cv2.morphologyEx(imagem, cv2.MORPH_OPEN, elem_est)
 
 def fechamento(imagem):
-    kernel = np.ones((5,5), np.uint8)
-    return cv2.morphologyEx(imagem, cv2.MORPH_CLOSE, kernel)
+    elem_est = np.ones((5,5), np.uint8)
+    return cv2.morphologyEx(imagem, cv2.MORPH_CLOSE, elem_est)
 
 
 # ===========================
@@ -144,5 +143,6 @@ def fechamento(imagem):
 # ===========================
 
 def segmentacao_otsu(imagem):
-    _, thresh = cv2.threshold(imagem, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return thresh
+    limiar_otimo_otsu, imagem_limiarizada = cv2.threshold(imagem, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    print(limiar_otimo_otsu) #limiar ótimo calculado pelo método de Otsu
+    return imagem_limiarizada

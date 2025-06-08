@@ -43,12 +43,6 @@ dist/
 # Pipenv
 Pipfile.lock
 
-# Arquivos específicos OpenCV (se gerar imagens temporárias ou outputs pesados)
-output/
-results/
-*.png
-*.jpg
-*.jpeg
-*.bmp
-*.tiff
-*.tif
+# Excluir pastas de imagens temporárias
+uploads/
+processadas/

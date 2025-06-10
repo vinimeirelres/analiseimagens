@@ -76,11 +76,20 @@ def processar_imagem():
     filename = request.form.get('filename')
     tipo_proc = request.form.get('tipo')
     tipo_freq = request.form.get('tipoFiltro')
+    acao = request.form.get("acao")
+
 
     if not filename or not tipo_proc:
         return jsonify({'error': 'Dados ausentes'}), 400
-
-    caminho = os.path.join(app.config['PASTA_UPLOADS'], filename)
+    
+    print(acao)
+    if acao == "processar":
+        caminho = os.path.join(app.config['PASTA_UPLOADS'], filename)
+    elif acao == "processar_imagem":
+        caminho = os.path.join(app.config['PASTA_PROCESSADAS'], filename)
+        if not os.path.exists(caminho):
+            caminho = os.path.join(app.config['PASTA_UPLOADS'], filename)
+    
     img = cv2.imread(caminho)
 
     func = PROCESSAMENTOS.get(tipo_proc)

@@ -75,7 +75,9 @@
         <input type="text" name="tipoFiltro" id="tipoFiltro" class="input" placeholder="Ex: passa-baixa" />
       </div>
 
-      <button type="submit" class="botao">Processar</button>
+      <button type="submit" name="acao" value="processar" class="botao">Processar</button>
+      <button type="submit" name="acao" value="processar_imagem" class="botao">Processar com imagem já processada</button>
+
     </form>
 
     <div class="botoes">
@@ -84,7 +86,7 @@
         </form>
       </div>
   
-
+  
 
   <script>
     const selectTipo = document.getElementById('tipo');
@@ -98,20 +100,28 @@
     });
 
     form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(form);
-      const res = await fetch('/api/processar', { method: 'POST', body: formData });
-      const json = await res.json();
+        e.preventDefault();
+        
+        const botaoClicado = e.submitter; 
+        const formData = new FormData(form);
+        formData.append('acao', botaoClicado.value);
 
-      if (json.processada) {
-        const timestamped = json.processada + '?t=' + new Date().getTime();
-        imgProcessada.src = timestamped;
-        imgProcessada.style.display = 'block';
-        botaoDownload.href = json.processada;
-        botaoDownload.style.display = 'inline-block';
-      } else {
-        alert('Erro: ' + (json.error || 'não foi possível processar'));
-      }
+        const res = await fetch('/api/processar', {
+          method: 'POST',
+          body: formData
+        });
+
+        const json = await res.json();
+
+        if (json.processada) {
+          const timestamped = json.processada + '?t=' + new Date().getTime();
+          imgProcessada.src = timestamped;
+          imgProcessada.style.display = 'block';
+          botaoDownload.href = json.processada;
+          botaoDownload.style.display = 'inline-block';
+        } else {
+          alert('Erro: ' + (json.error || 'não foi possível processar'));
+        }
     });
   </script>
 </body>

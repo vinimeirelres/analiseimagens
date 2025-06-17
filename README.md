@@ -2,6 +2,11 @@
 
 Este projeto foi desenvolvido como atividade da disciplina **SIN 392 - Processamento Digital de Imagens** da Universidade Federal de Viçosa, sob orientação da **Profª Drª Larissa Ferreira Rodrigues Moreira**. Ele permite o carregamento de imagens, visualização de histogramas e aplicação de diversos filtros e transformações, tudo por meio de uma interface simples e funcional.
 
+## Vídeo de Apresentação do Projeto
+```bash
+https://youtu.be/RFRA3vmDY-4
+```
+
 ## Funcionalidades
 
 - Upload de imagem (JPG ou PNG)
